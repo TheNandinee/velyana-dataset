@@ -6,9 +6,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -18,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install datasets huggingface_hub pandas scikit-learn sentence-transformers tqdm pyarrow
+        pip install datasets huggingface_hub kagglehub pandas scikit-learn sentence-transformers tqdm pyarrow
     
     - name: Login to HuggingFace
       env:
@@ -26,25 +27,53 @@ jobs:
       run: |
         huggingface-cli login --token $HF_TOKEN --add_to_git_credential
     
-    - name: Download HuggingFace datasets
-      run: python scripts/01_download_hf.py
+    - name: Create directories
+      run: |
+        mkdir -p downloaded output
     
-    - name: Build attack & benign datasets
+    - name: Download HuggingFace and Kaggle datasets
+      run: python scripts/01_download_hf_and_kaggle.py
+    
+    - name: Build attack and benign datasets
       run: python scripts/02_build_datasets_APPEND.py
     
-    - name: Apply cosine filter
+    - name: Apply cosine similarity filter
       run: python scripts/03_cosine_filter.py
     
-    - name: Upload final CSVs
-      uses: actions/upload-artifact@v3
+    - name: Upload final datasets as artifacts
+      uses: actions/upload-artifact@v4
       with:
         name: final-datasets
         path: output/*.csv
+        retention-days: 30
     
-    - name: Commit and push results
+    - name: Commit and push results to repository
       run: |
         git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.name "GitHub Action Bot"
+        
         git add output/*.csv
-        git commit -m "✅ Dataset build complete" || echo "No changes to commit"
-        git push
+        
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "✅ Dataset build complete - $(date)"
+          git push origin main
+        fi
+      continue-on-error: true
+    
+    - name: Print summary
+      run: |
+        echo "=========================================="
+        echo "Build Complete!"
+        echo "=========================================="
+        if [ -f output/attack_prompts.csv ]; then
+          echo "✅ Attack prompts: $(wc -l < output/attack_prompts.csv) rows"
+        fi
+        if [ -f output/benign_prompts.csv ]; then
+          echo "✅ Benign prompts: $(wc -l < output/benign_prompts.csv) rows"
+        fi
+        if [ -f output/velyana_dataset_final.csv ]; then
+          echo "✅ Final dataset: $(wc -l < output/velyana_dataset_final.csv) rows"
+        fi
+        echo "=========================================="
