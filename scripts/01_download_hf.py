@@ -3,6 +3,7 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 from datasets import load_dataset
+import io
 
 DOWNLOAD_DIR = Path("downloaded")
 DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -12,21 +13,12 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 # ═══════════════════════════════════════════════════════════════════════════════════
 
 PARQUET_URLS = {
-    # microsoft/llmail-inject-challenge
+    # microsoft/llmail-inject-challenge (multiple files)
     "microsoft_llmail": [
-        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0000.parquet",
-    ],
-
-    "microsoft_llmail": [
-        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0001.parquet",
-    ],
-
-    "microsoft_llmail": [
-        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0002.parquet",
-    ],
-
-    "microsoft_llmail": [
-        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase2/0000.parquet",
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default/Phase1/0000.parquet",
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default/Phase1/0001.parquet",
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default/Phase1/0002.parquet",
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default/Phase2/0000.parquet",
     ],
     
     # qxcv/tensor-trust
@@ -56,7 +48,7 @@ PARQUET_URLS = {
 }
 
 print("=" * 90)
-print("DOWNLOADING PROBLEMATIC DATASETS VIA DIRECT PARQUET URLs")
+print("DOWNLOADING DATASETS VIA DIRECT PARQUET URLs (NO AUTH)")
 print("=" * 90)
 print()
 
@@ -72,34 +64,38 @@ for dataset_name, urls in PARQUET_URLS.items():
         success += 1
         continue
     
-    for url in urls:
-        try:
-            print(f"  📥 {dataset_name}: downloading...", end=" ", flush=True)
-            
-            # Download with progress
-            response = requests.get(url, stream=True, timeout=300)
-            response.raise_for_status()
-            
-            total_size = int(response.headers.get('content-length', 0))
-            
-            # Write to temp file first
-            temp_path = out_path.with_suffix(".tmp")
-            with open(temp_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            # Read and verify
-            df = pd.read_parquet(temp_path)
-            df.to_parquet(out_path, index=False)
-            temp_path.unlink()
+    try:
+        print(f"  📥 {dataset_name}: downloading {len(urls)} file(s)...", end=" ", flush=True)
+        
+        frames = []
+        for url in urls:
+            try:
+                # Download with timeout
+                response = requests.get(url, stream=True, timeout=300)
+                response.raise_for_status()
+                
+                # Read parquet directly from response
+                df = pd.read_parquet(io.BytesIO(response.content))
+                frames.append(df)
+            except Exception as e:
+                print(f"\n     ⚠️  Skipped file (error: {str(e)[:40]})")
+                continue
+        
+        if frames:
+            # Combine all parquet files
+            combined = pd.concat(frames, ignore_index=True)
+            combined.to_parquet(out_path, index=False)
             
             size_mb = out_path.stat().st_size / (1024**2)
-            print(f"✅ {len(df)} rows ({size_mb:.1f} MB)")
+            print(f"✅ {len(combined)} rows ({size_mb:.1f} MB)")
             success += 1
-            break
-        except Exception as e:
-            print(f"❌ {str(e)[:60]}")
+        else:
+            print(f"❌ No files downloaded")
             failed += 1
+            
+    except Exception as e:
+        print(f"❌ {str(e)[:60]}")
+        failed += 1
 
 # ═══════════════════════════════════════════════════════════════════════════════════
 # ALSO DOWNLOAD THE NORMAL ONES THAT WORK
@@ -143,7 +139,8 @@ for repo, name, split in tqdm(NORMAL_DATASETS, desc="Standard datasets"):
         df.to_parquet(out_path, index=False)
         success += 1
     except Exception as e:
-        print(f"  ❌ {repo}: {str(e)[:60]}")
+        error_msg = str(e)[:60]
+        print(f"  ⚠️  {repo}: {error_msg}")
         failed += 1
 
 print()
