@@ -14,7 +14,19 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 PARQUET_URLS = {
     # microsoft/llmail-inject-challenge
     "microsoft_llmail": [
-        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default/train/0000.parquet",
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0000.parquet",
+    ],
+
+    "microsoft_llmail": [
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0001.parquet",
+    ],
+
+    "microsoft_llmail": [
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase1/0002.parquet",
+    ],
+
+    "microsoft_llmail": [
+        "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/blob/refs%2Fconvert%2Fparquet/default/Phase2/0000.parquet",
     ],
     
     # qxcv/tensor-trust
