@@ -29,52 +29,29 @@ HF_DATASETS = [
     ("ucberkeley-dlab/measuring-hate-speech", "ucb_hate_speech", "train"),
 ]
 
-print("=" * 80)
+print("=" * 70)
 print("DOWNLOADING HUGGINGFACE DATASETS")
-print("=" * 80)
-print()
+print("=" * 70)
 
-hf_success = 0
-hf_failed = 0
+success = 0
+failed = 0
 
-for repo, name, split in tqdm(HF_DATASETS, desc="Downloading HF"):
+for repo, name, split in tqdm(HF_DATASETS, desc="Downloading"):
     out_path = DOWNLOAD_DIR / f"{name}.parquet"
     
     if out_path.exists():
-        hf_success += 1
+        success += 1
         continue
     
     try:
-        ds = load_dataset(repo, split=split)
+        ds = load_dataset(repo, split=split, trust_remote_code=True)
         df = ds.to_pandas()
         df.to_parquet(out_path, index=False)
-        hf_success += 1
+        success += 1
     except Exception as e:
-        error_msg = str(e)[:60]
-        if "loading script" in error_msg.lower() or "trust_remote_code" in error_msg.lower():
-            print(f"  ⚠️  {repo}: Dataset requires custom loading (skipping)")
-        else:
-            print(f"  ❌ {repo}: {error_msg}")
-        hf_failed += 1
+        print(f"❌ {repo}: {str(e)[:50]}")
+        failed += 1
 
-print(f"\n✅ HuggingFace: {hf_success}/{len(HF_DATASETS)} downloaded")
-print(f"⚠️  Failed: {hf_failed}")
-
-print("\n" + "=" * 80)
-print("SUMMARY")
-print("=" * 80)
-print(f"Total HuggingFace datasets: {hf_success}/{len(HF_DATASETS)}")
-print()
-print("Downloaded files:")
-for f in sorted(DOWNLOAD_DIR.glob("*.parquet")):
-    size_mb = f.stat().st_size / (1024**2)
-    print(f"  ✅ {f.name} ({size_mb:.1f} MB)")
-print()
-print("⚠️  KAGGLE DATASETS:")
-print("  To add Kaggle CSVs, download them manually and upload to your repo:")
-print("  - kaggle_xss.csv")
-print("  - kaggle_sqli.csv")
-print("  - kaggle_malicious_urls.csv")
-print("=" * 80)
-print("NEXT: Run  python scripts/02_build_datasets_APPEND.py")
-print("=" * 80)
+print("\n" + "=" * 70)
+print(f"✅ Downloaded {success}/{len(HF_DATASETS)} datasets")
+print("=" * 70)
