@@ -35,7 +35,7 @@ jobs:
       run: python scripts/01_download_hf.py
     
     - name: Build attack and benign datasets
-      run: python scripts/02_build_datasets_APPEND.py
+      run: python scripts/02_build_datasets.py
     
     - name: Apply cosine similarity filter
       run: python scripts/03_cosine_filter.py
