@@ -32,7 +32,7 @@ jobs:
         mkdir -p downloaded output
     
     - name: Download HuggingFace and Kaggle datasets
-      run: python scripts/01_download_hf_and_kaggle.py
+      run: python scripts/01_download_hf.py
     
     - name: Build attack and benign datasets
       run: python scripts/02_build_datasets_APPEND.py
