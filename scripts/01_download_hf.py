@@ -9,8 +9,8 @@ DOWNLOAD_DIR.mkdir(exist_ok=True)
 HF_DATASETS = [
     ("Lakera/gandalf_ignore_instructions", "lakera_gandalf", "train"),
     ("deepset/prompt-injections", "deepset_pi", "train"),
-    ("microsoft/llmail-inject-challenge", "microsoft_llmail", "train"),
-    ("qxcv/tensor-trust", "tensor_trust", "train"),
+    ("microsoft/llmail-inject-challenge", "microsoft_llmail", None),  # Try without split
+    ("qxcv/tensor-trust", "tensor_trust", None),  # Try without split
     ("hackaprompt/hackaprompt-dataset", "hackaprompt", "train"),
     ("TrustAIRLab/in-the-wild-jailbreak-prompts", "trustairlab_jailbreak", "train"),
     ("reshabhs/SPML_Chatbot_Prompt_Injection", "spml_chatbot_pi", "train"),
@@ -18,11 +18,14 @@ HF_DATASETS = [
     ("jayavibhav/prompt-injection", "jayavibhav_pi", "train"),
     ("qualifire/prompt-injections-benchmark", "qualifire_pi", "train"),
     ("gabrielchua/system-prompt-leakage", "gabrielchua_spe", "train"),
+    ("Bordair/bordair-multimodal", "bordair_multimodal", None),  # Try without split
     ("Waiper/ExploitDB_DataSet", "waiper_exploitdb", "train"),
+    ("truongp/web-attack-detection", "truongp_web_attack", None),  # Try without split
     ("ai4privacy/pii-masking-400k", "ai4privacy_400k", "train"),
     ("nvidia/Nemotron-PII", "nvidia_nemotron_pii", "train"),
     ("Isotonic/pii-masking-200k", "isotonic_pii_200k", "train"),
     ("ai4privacy/open-pii-masking-500k-ai4privacy", "ai4privacy_500k", "train"),
+    ("Antijection/prompt-injection-dataset-v1", "antijection_mco", None),  # Try without split
     ("nvidia/Aegis-AI-Content-Safety-Dataset-1.0", "nvidia_aegis", "train"),
     ("toxigen/toxigen-data", "toxigen", "train"),
     ("google/civil_comments", "google_civil_comments", "train"),
