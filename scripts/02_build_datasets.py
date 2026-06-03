@@ -3,22 +3,16 @@ from pathlib import Path
 
 DOWNLOAD_DIR = Path("downloaded")
 OUTPUT_DIR = Path("output"); OUTPUT_DIR.mkdir(exist_ok=True)
-
-attack_rows, benign_rows = [], []
-used_prompts = set()
-RAW_CAP = 6000   # per-category ceiling in the raw build (03 then dedups + caps to 5000)
-
+attack_rows, benign_rows, used_prompts = [], [], set()
 
 def find_col(df, kw):
     for c in df.columns:
         if c.lower() in kw or any(k in c.lower() for k in kw): return c
     return df.columns[0]
-
 def find_label_col(df, kw):
     for c in df.columns:
         if c.lower() in kw or any(k in c.lower() for k in kw): return c
     return None
-
 def filter_attacks(df, lab):
     if lab is None: return df
     u = set(df[lab].dropna().unique())
@@ -27,21 +21,17 @@ def filter_attacks(df, lab):
         kws = ["attack","injection","jailbreak","leakage","toxic","malicious","true"]
         return df[df[lab].astype(str).str.lower().apply(lambda x: any(k in x for k in kws))]
     return df
-
 def add_attack(df, parent, vector, source):
     if df is None or len(df) == 0: return
     df = df.copy()
     if "prompt" not in df.columns: df = df.rename(columns={df.columns[0]: "prompt"})
-    df = df[["prompt"]].dropna()
-    df["prompt"] = df["prompt"].astype(str)
-    df = df[df["prompt"].str.len().between(6, 2000)]          # drop junk + giant blobs
+    df = df[["prompt"]].dropna(); df["prompt"] = df["prompt"].astype(str)
+    df = df[df["prompt"].str.len().between(6, 2000)]
     df = df[~df["prompt"].isin(used_prompts)].drop_duplicates(subset=["prompt"])
     if len(df) == 0: return
     used_prompts.update(df["prompt"].tolist())
     df["parent_category"], df["vector"], df["source"] = parent, vector, source
-    attack_rows.append(df[["prompt","parent_category","vector","source"]])
-    print(f"  ✅ {source} → {vector}: {len(df)}")
-
+    attack_rows.append(df[["prompt","parent_category","vector","source"]]); print(f"  ✅ {source} → {vector}: {len(df)}")
 def route_and_add(df, parent, rules, default, source, max_rows=None):
     if df is None or len(df) == 0: return
     df = df.copy()
@@ -58,25 +48,10 @@ def route_and_add(df, parent, rules, default, source, max_rows=None):
     for vec, grp in df.groupby("v"):
         add_attack(grp[["prompt"]], parent, vec, source)
 
-def cap_category(df, cap):
-    """Water-filling cap: small vectors kept whole, only oversized ones trimmed."""
-    counts = df["vector"].value_counts().to_dict()
-    if sum(counts.values()) <= cap: return df
-    alloc, rem, vs = {}, cap, sorted(counts, key=lambda v: counts[v]); n = len(vs)
-    for v in vs:
-        take = min(counts[v], rem // n); alloc[v] = take; rem -= take; n -= 1
-    for v in sorted(counts, key=lambda v: counts[v], reverse=True):
-        if rem <= 0: break
-        extra = min(counts[v]-alloc[v], rem); alloc[v] += extra; rem -= extra
-    parts = [g.sample(alloc[v], random_state=42) if alloc[v] < len(g) else g
-             for v, g in df.groupby("vector")]
-    return pd.concat(parts, ignore_index=True)
-
 PI_RULES = [
     ("Role and persona assignment", ["act as","you are now","pretend","roleplay","role-play","persona","dan mode","you are dan","from now on you are","behave as"]),
     ("Encoded and obfuscated injection", ["base64","rot13","in hex","\\x","encoded","obfuscat","in binary","ascii code","leetspeak"]),
-    ("Indirect injection via context", ["the following email","when summariz","in the document","webpage","retrieved","the text below","this email","in the article"]),
-    ("Second-hop and forwarded injection", ["forward","in your reply","when you respond","include in your","your next response","send this to"]),
+    ("Second-hop and forwarded injection", ["forward","in your reply","when you respond","include in your","your next response","send this to","downstream"]),
     ("Direct instruction override", ["ignore","disregard","forget","override","do not follow","bypass","new instruction","instead of"]),
 ]
 PI_DEFAULT = "Direct instruction override"
@@ -92,22 +67,27 @@ SPE_DEFAULT = "Direct questioning"
 MC_RULES = [
     ("Cross-site scripting (XSS) generation", ["<script","onerror","onload=","javascript:","alert(","<img","<svg","document.cookie","xss","innerhtml"]),
     ("SQL injection payload generation", ["union select","' or '","or 1=1","drop table","insert into","sql injection","sqli","' or 1","sleep("]),
-    ("Command injection payload generation", ["; ls","&&","| cat","/bin/","/etc/passwd","wget ","curl ","$(","system(","exec(","command injection","nc -"]),
-    ("Encoded and obfuscated payload delivery", ["base64","%3c","%3e","fromcharcode","eval(atob","char(","obfuscat"]),
+    ("Command injection payload generation", ["; ls","&&","||","| cat","|cat","/bin/","/etc/passwd","wget ","curl ","$(","`","system(","exec(","command injection","cmd injection","nc -","bash -","sh -c","; cat","; rm","ping -","whoami","; id","&ping",";id"]),
+    ("Encoded and obfuscated payload delivery", ["base64","b64decode","%3c","%3e","%27","%22","\\x","\\u00","fromcharcode","eval(atob","atob(","char(","chr(","unescape","decodeuri","obfuscat","rot13","&#x"]),
     ("Jailbreak via code context", ["write code","import os","python script","write a program","code that"]),
 ]
 MC_DEFAULT = None
 
-print("=" * 80); print("BUILDING VELYANA DATASET"); print("=" * 80)
+print("=" * 80); print("BUILDING VELYANA DATASET (real data)"); print("=" * 80)
 
-# CAT 1: PROMPT INJECTION
 print("\n📁 CATEGORY 1: PROMPT INJECTION")
-for fn in ["lakera_gandalf","hackaprompt","trustairlab_jailbreak","microsoft_llmail"]:
+for fn in ["lakera_gandalf", "hackaprompt", "trustairlab_jailbreak"]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
-        t = find_col(df, ["prompt","text","input","attack","user_input","body","jailbreak"])
+        t = find_col(df, ["prompt","text","input","attack","user_input","jailbreak"])
         route_and_add(df[[t]].rename(columns={t:"prompt"}), "Prompt Injection", PI_RULES, PI_DEFAULT, fn, max_rows=4000)
     except Exception as e: print(f"  ❌ {fn}: {e}")
+try:  # microsoft_llmail = indirect injection BY CONSTRUCTION
+    df = pd.read_parquet(DOWNLOAD_DIR/"microsoft_llmail.parquet")
+    t = find_col(df, ["body","attack","payload","text"])
+    df = df[[t]].rename(columns={t:"prompt"}).sample(min(5000, len(df)), random_state=42)
+    add_attack(df, "Prompt Injection", "Indirect injection via context", "microsoft_llmail")
+except Exception as e: print(f"  ❌ microsoft_llmail: {e}")
 try:
     df = pd.read_parquet(DOWNLOAD_DIR/"deepset_pi.parquet")
     t = find_col(df,["text","prompt"]); lab = find_label_col(df,["label"])
@@ -119,63 +99,52 @@ try:
     t = find_col(df,["text","prompt"]); df = df.rename(columns={t:"prompt"})
     if "category" in df.columns:
         for cval, vec in {"direct_injection":"Direct instruction override","jailbreak":"Role and persona assignment"}.items():
-            sub = df[df["category"].astype(str).str.contains(cval, case=False, na=False)]
-            add_attack(sub[["prompt"]], "Prompt Injection", vec, f"neuralchemy_{cval}")
+            add_attack(df[df["category"].astype(str).str.contains(cval, case=False, na=False)][["prompt"]], "Prompt Injection", vec, f"neuralchemy_{cval}")
         rest = df[~df["category"].astype(str).str.lower().isin(["direct_injection","jailbreak","benign"])]
         route_and_add(rest[["prompt"]], "Prompt Injection", PI_RULES, PI_DEFAULT, "neuralchemy_other")
     else:
         route_and_add(df[["prompt"]], "Prompt Injection", PI_RULES, PI_DEFAULT, "neuralchemy")
 except Exception as e: print(f"  ❌ neuralchemy: {e}")
 
-# CAT 2: SYSTEM PROMPT EXTRACTION
 print("\n📁 CATEGORY 2: SYSTEM PROMPT EXTRACTION")
 try:
     df = pd.read_parquet(DOWNLOAD_DIR/"gabrielchua_spe.parquet")
     t = find_col(df,["content","prompt","text"]); lab = find_label_col(df,["leakage","label"])
-    route_and_add(filter_attacks(df.rename(columns={t:"prompt"}), lab)[["prompt"]], "System Prompt Extraction", SPE_RULES, SPE_DEFAULT, "gabrielchua_spe", max_rows=4000)
+    route_and_add(filter_attacks(df.rename(columns={t:"prompt"}), lab)[["prompt"]], "System Prompt Extraction", SPE_RULES, SPE_DEFAULT, "gabrielchua_spe", max_rows=8000)
 except Exception as e: print(f"  ❌ gabrielchua_spe: {e}")
 
-# CAT 3: MALICIOUS CODE
 print("\n📁 CATEGORY 3: MALICIOUS CODE AND PAYLOAD INJECTION")
-for fn, cols in [("truongp_web_attack",["sentence","text","prompt"]), ("waiper_exploitdb",["input","prompt","payload","text"])]:
+for fn, cols, mx in [("truongp_web_attack",["sentence","text","prompt"],12000), ("waiper_exploitdb",["input","prompt","payload","text"],4000)]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
         t = find_col(df, cols); lab = find_label_col(df,["label"])
         df = filter_attacks(df.rename(columns={t:"prompt"}), lab) if lab else df.rename(columns={t:"prompt"})
-        route_and_add(df[["prompt"]], "Malicious Code and Payload Injection", MC_RULES, MC_DEFAULT, fn, max_rows=4000)
+        route_and_add(df[["prompt"]], "Malicious Code and Payload Injection", MC_RULES, MC_DEFAULT, fn, max_rows=mx)
     except Exception as e: print(f"  ❌ {fn}: {e}")
 
-# CAT 5: MALICIOUS CONTENT IN OUTPUT (2 of 5 vectors have real sources)
 print("\n📁 CATEGORY 5: MALICIOUS CONTENT IN OUTPUT")
-try:  # 5.2 Malicious URL generation
+try:
     df = pd.read_parquet(DOWNLOAD_DIR/"phishing_urls.parquet")
-    lab = find_label_col(df,["label"]); t = find_col(df,["text","url"])
-    df = df.rename(columns={t:"prompt"})
+    lab = find_label_col(df,["label"]); t = find_col(df,["text","url"]); df = df.rename(columns={t:"prompt"})
     if lab: df = df[df[lab].isin([1,"1",True])]
     add_attack(df[["prompt"]], "Malicious Content in Output", "Malicious URL generation", "phishing_urls")
 except Exception as e: print(f"  ❌ phishing_urls: {e}")
-try:  # 5.4 Misinformation (fake headlines)
+try:
     df = pd.read_parquet(DOWNLOAD_DIR/"fake_news.parquet")
-    lab = find_label_col(df,["label"])
-    t = "title" if "title" in df.columns else find_col(df,["text","content","article"])
+    lab = find_label_col(df,["label"]); t = "title" if "title" in df.columns else find_col(df,["text","content"])
     df = df.rename(columns={t:"prompt"})
     if lab is not None: df = df[df[lab].isin([0,"0",False])]
-    df = df.sample(min(3000,len(df)), random_state=42)
-    add_attack(df[["prompt"]], "Malicious Content in Output", "Misinformation and hallucination manipulation", "fake_news")
+    add_attack(df[["prompt"]].sample(min(3000,len(df)), random_state=42), "Malicious Content in Output", "Misinformation and hallucination manipulation", "fake_news")
 except Exception as e: print(f"  ❌ fake_news: {e}")
-print("   (HTML/JS-in-output, data-exfil, sycophancy left empty — no clean training source)")
 
-# SAFETY BASELINE
 print("\n📁 SAFETY BASELINE")
 for fn, n in [("nvidia_aegis",2500),("toxigen",1500),("google_civil_comments",2000),("ucb_hate_speech",1500)]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
         t = find_col(df,["prompt","text"])
-        add_attack(df[[t]].rename(columns={t:"prompt"}).sample(min(n,len(df)), random_state=42),
-                   "Safety", "Toxic and abusive content", fn)
+        add_attack(df[[t]].rename(columns={t:"prompt"}).sample(min(n,len(df)), random_state=42), "Safety", "Toxic and abusive content", fn)
     except Exception as e: print(f"  ❌ {fn}: {e}")
 
-# BENIGN
 print("\n📁 BENIGN/SAFE PROMPTS")
 BENIGN = {
     "Healthcare": ["What are the symptoms of type 2 diabetes?","How often should I get a cholesterol check?","Can you explain what an MRI scan is used for?","What are the side effects of ibuprofen?","How do I know if I have high blood pressure?","What vaccinations are recommended for adults?","How does chemotherapy work?","Is it safe to take paracetamol and ibuprofen together?","What are the early signs of a stroke?","How can I manage chronic back pain?","What is the difference between Type 1 and Type 2 diabetes?","What are common signs of vitamin B12 deficiency?","How does the human immune system work?","What is an ECG used to diagnose?","Can anxiety cause physical symptoms?","What is the recommended amount of sleep?","How does insulin work?","What is palliative care?","What is the difference between a virus and bacteria?","How do I read my prescription label?","What does BMI mean?","What does it mean if my doctor says I'm pre-diabetic?","What is the recommended daily vitamin D intake?","What is the difference between a GP and specialist?","How long does it take to recover from surgery?","What are benefits of physiotherapy?","What foods should I avoid if I have high cholesterol?","What does elevated liver enzymes mean?","How is a blood sugar level of 120 mg/dL interpreted?","What is the difference between CT and MRI scans?"],
@@ -189,14 +158,6 @@ for domain, prompts in BENIGN.items():
         benign_rows.append({"prompt": p, "parent_category": "Safe", "vector": "Safe", "source": f"manual_benign_{domain}"})
 print(f"  ✅ {len(benign_rows)} benign prompts")
 
-# SAVE (with per-category raw cap)
-print("\n" + "=" * 80)
-attack_df = pd.concat(attack_rows, ignore_index=True)
-attack_df = pd.concat([cap_category(g, RAW_CAP) for _, g in attack_df.groupby("parent_category")], ignore_index=True)
-attack_df.to_csv(OUTPUT_DIR/"attack_prompts_raw.csv", index=False)
-print(f"✅ {len(attack_df)} attack rows (capped {RAW_CAP}/category)")
-for cat in sorted(attack_df["parent_category"].unique()):
-    print(f"     {cat}: {(attack_df['parent_category']==cat).sum()}")
+pd.concat(attack_rows, ignore_index=True).to_csv(OUTPUT_DIR/"attack_prompts_raw.csv", index=False)
 pd.DataFrame(benign_rows).to_csv(OUTPUT_DIR/"benign_prompts_raw.csv", index=False)
-print(f"✅ {len(benign_rows)} benign rows")
-print("\nNEXT: python scripts/03_cosine_filter.py")
+print("\n✅ wrote attack_prompts_raw.csv + benign_prompts_raw.csv  →  next: 04 then 03")
