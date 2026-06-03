@@ -19,18 +19,24 @@ TAXONOMY = {
 
 print("Loading model..."); model = SentenceTransformer("all-MiniLM-L6-v2"); print("✅\n")
 
+PRE_CAP = 8000   # max rows per vector fed into dedup (plenty to survive down to 1000)
+
 def cosine_dedup(df):
     kept = []
     for (parent, vector), chunk in df.groupby(["parent_category","vector"], sort=False):
-        chunk = chunk.reset_index(drop=True); n = len(chunk)
+        chunk = chunk.reset_index(drop=True)
+        if len(chunk) > PRE_CAP:
+            chunk = chunk.sample(PRE_CAP, random_state=42).reset_index(drop=True)
+        n = len(chunk)
+        print(f"  dedup {vector[:34]:34s} n={n} ...", flush=True)
         if n <= 1: kept.append(chunk); continue
-        emb = model.encode(chunk["prompt"].astype(str).tolist(), batch_size=BATCH_SIZE,
+        emb = model.encode(chunk["prompt"].astype(str).tolist(), batch_size=512,
                            show_progress_bar=False, normalize_embeddings=True).astype(np.float32)
         buf = np.empty((n, emb.shape[1]), dtype=np.float32); idx=[]; k=0
         for i in range(n):
             if k == 0 or (buf[:k] @ emb[i]).max() < SIM_THRESHOLD:
                 buf[k] = emb[i]; k += 1; idx.append(i)
-        out = chunk.iloc[idx]; print(f"  dedup {vector[:34]:34s} {n:6d}→{len(out):6d}"); kept.append(out)
+        out = chunk.iloc[idx]; print(f"     → kept {len(out)}", flush=True); kept.append(out)
     return pd.concat(kept, ignore_index=True)
 
 def balance(df):
