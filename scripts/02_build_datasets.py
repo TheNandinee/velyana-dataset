@@ -37,6 +37,9 @@ def route_and_add(df, parent, rules, default, source, max_rows=None):
     df = df.copy()
     if "prompt" not in df.columns: df = df.rename(columns={df.columns[0]: "prompt"})
     df = df[["prompt"]].dropna(); df["prompt"] = df["prompt"].astype(str)
+    df["prompt"] = (df["prompt"].str.replace(r"[\r\n\t]+", " ", regex=True)
+                                 .str.replace(r"[\x00-\x1f\x7f]", "", regex=True)
+                                 .str.replace(r"\s+", " ", regex=True).str.strip())
     df = df[df["prompt"].str.len().between(6, 2000)]
     if max_rows and len(df) > max_rows: df = df.sample(max_rows, random_state=42)
     def route(p):
