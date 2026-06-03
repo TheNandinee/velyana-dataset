@@ -1,0 +1,25 @@
+parent_category,vector,rows
+Prompt Injection,Direct instruction override,1500
+Prompt Injection,Role and persona assignment,689
+Prompt Injection,Indirect injection via context,505
+Prompt Injection,Encoded and obfuscated injection,N/A
+Prompt Injection,Second-hop and forwarded injection,N/A
+System Prompt Extraction,Direct questioning,1500
+System Prompt Extraction,Repetition and verbatim requests,N/A
+System Prompt Extraction,Format conversion extraction,N/A
+System Prompt Extraction,Summarisation inference,773
+System Prompt Extraction,Completion-based extraction,N/A
+System Prompt Extraction,Behavioural inference and side-channel probing,N/A
+Malicious Code and Payload Injection,Cross-site scripting (XSS) generation,1500
+Malicious Code and Payload Injection,SQL injection payload generation,432
+Malicious Code and Payload Injection,Command injection payload generation,212
+Malicious Code and Payload Injection,Jailbreak via code context,N/A
+Malicious Code and Payload Injection,Prompt-embedded payload delivery,N/A
+Malicious Code and Payload Injection,Encoded and obfuscated payload delivery,336
+Privilege and Identity Attacks,Cross-customer identity leakage (BOLA),N/A
+Privilege and Identity Attacks,Authentication credential extraction,N/A
+Malicious Content in Output,HTML and JavaScript injection in output,N/A
+Malicious Content in Output,Malicious URL generation,1347
+Malicious Content in Output,Data exfiltration via output formatting,N/A
+Malicious Content in Output,Misinformation and hallucination manipulation,1500
+Malicious Content in Output,Sycophantic manipulation and false premise confirmation,N/A
