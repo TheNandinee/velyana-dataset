@@ -2,15 +2,12 @@ import os, io, time, requests
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from datasets import load_dataset, concatenate_datasets
 
 DOWNLOAD_DIR = Path("downloaded"); DOWNLOAD_DIR.mkdir(exist_ok=True)
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
 HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 PARQUET_API = "https://datasets-server.huggingface.co/parquet?dataset={repo}"
-MS = "https://huggingface.co/datasets/microsoft/llmail-inject-challenge/resolve/refs%2Fconvert%2Fparquet/default"
 
-# repo, config-filter (None = all). Parquet-direct only; no load_dataset (avoids 429).
 DATASETS = {
     "lakera_gandalf":        ("Lakera/gandalf_ignore_instructions", None),
     "deepset_pi":            ("deepset/prompt-injections", None),
@@ -20,25 +17,19 @@ DATASETS = {
     "jayavibhav_pi":         ("jayavibhav/prompt-injection", None),
     "qualifire_pi":          ("qualifire/prompt-injections-benchmark", None),
     "neuralchemy_pi":        ("neuralchemy/Prompt-injection-dataset", ["full"]),
-    "microsoft_llmail":      dict(repo="microsoft/llmail-inject-challenge",
-                                  urls=[f"{MS}/Phase1/0000.parquet", f"{MS}/Phase1/0001.parquet",
-                                        f"{MS}/Phase1/0002.parquet", f"{MS}/Phase2/0000.parquet"]),
+    "microsoft_llmail":      ("microsoft/llmail-inject-challenge", None),
     "trustairlab_jailbreak": ("TrustAIRLab/in-the-wild-jailbreak-prompts",
                               ["jailbreak_2023_05_07", "jailbreak_2023_12_25"]),
-    # System Prompt Extraction
     "gabrielchua_spe":       ("gabrielchua/system-prompt-leakage", None),
     "waiper_exploitdb":      ("Waiper/ExploitDB_DataSet", None),
     "truongp_web_attack":    ("truongp/web-attack-detection", None),
-    # ---- Category 5 (NEW, real + parquet) ----
-    "phishing_urls":         ("shawhin/phishing-site-classification", None),   # 5.2
-    "fake_news":             ("GonzaloA/fake_news", None),                     # 5.4
-    # ---- Safety baseline ----
+    "phishing_urls":         ("shawhin/phishing-site-classification", None),
+    "fake_news":             ("GonzaloA/fake_news", None),
     "nvidia_aegis":          ("nvidia/Aegis-AI-Content-Safety-Dataset-1.0", None),
     "toxigen":               ("toxigen/toxigen-data", None),
     "google_civil_comments": ("google/civil_comments", None),
     "ucb_hate_speech":       ("ucberkeley-dlab/measuring-hate-speech", None),
 }
-
 
 def get(url, tries=5):
     delay = 5
@@ -49,7 +40,6 @@ def get(url, tries=5):
         r.raise_for_status(); return r
     r.raise_for_status()
 
-
 def discover(repo, configs=None, tries=5):
     delay = 5
     for _ in range(tries):
@@ -58,18 +48,14 @@ def discover(repo, configs=None, tries=5):
             time.sleep(delay); delay = min(delay*2, 60); continue
         r.raise_for_status()
         files = r.json().get("parquet_files", [])
-        if configs:
-            files = [f for f in files if f["config"] in configs]
+        if configs: files = [f for f in files if f["config"] in configs]
         return [f["url"] for f in files]
     return []
 
-
 def fetch(repo, configs):
     urls = discover(repo, configs)
-    if not urls:
-        return None
+    if not urls: return None
     return pd.concat([pd.read_parquet(io.BytesIO(get(u).content)) for u in urls], ignore_index=True)
-
 
 success = failed = 0
 print("=" * 80); print("DOWNLOADING DATASETS (parquet-direct, 429-aware)"); print("=" * 80)
@@ -79,12 +65,11 @@ for name, (repo, configs) in tqdm(DATASETS.items(), desc="Datasets"):
     try:
         df = fetch(repo, configs)
         if df is None or len(df) == 0:
-            print(f"  ⚠️  {name}: no parquet available (skipped)"); failed += 1; continue
+            print(f"  ⚠️  {name}: no parquet (skipped)"); failed += 1; continue
         df.to_parquet(out, index=False); print(f"  ✅ {name}: {len(df)} rows"); success += 1
     except Exception as e:
         print(f"  ❌ {name}: {str(e)[:70]}"); failed += 1
     time.sleep(2)
-
 print("=" * 80); print(f"✅ {success}   ❌ {failed}")
 for f in sorted(DOWNLOAD_DIR.glob("*.parquet")):
     print(f"  {f.name:42s} {f.stat().st_size/1024**2:8.1f} MB")
