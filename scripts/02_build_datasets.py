@@ -1,3 +1,4 @@
+import csv
 import pandas as pd
 from pathlib import Path
 
@@ -26,6 +27,9 @@ def add_attack(df, parent, vector, source):
     df = df.copy()
     if "prompt" not in df.columns: df = df.rename(columns={df.columns[0]: "prompt"})
     df = df[["prompt"]].dropna(); df["prompt"] = df["prompt"].astype(str)
+    df["prompt"] = (df["prompt"].str.replace(r"[\r\n\t]+", " ", regex=True)
+                                 .str.replace(r"[\x00-\x1f\x7f]", "", regex=True)
+                                 .str.replace(r"\s+", " ", regex=True).str.strip())
     df = df[df["prompt"].str.len().between(6, 2000)]
     df = df[~df["prompt"].isin(used_prompts)].drop_duplicates(subset=["prompt"])
     if len(df) == 0: return
@@ -37,9 +41,6 @@ def route_and_add(df, parent, rules, default, source, max_rows=None):
     df = df.copy()
     if "prompt" not in df.columns: df = df.rename(columns={df.columns[0]: "prompt"})
     df = df[["prompt"]].dropna(); df["prompt"] = df["prompt"].astype(str)
-    df["prompt"] = (df["prompt"].str.replace(r"[\r\n\t]+", " ", regex=True)
-                                 .str.replace(r"[\x00-\x1f\x7f]", "", regex=True)
-                                 .str.replace(r"\s+", " ", regex=True).str.strip())
     df = df[df["prompt"].str.len().between(6, 2000)]
     if max_rows and len(df) > max_rows: df = df.sample(max_rows, random_state=42)
     def route(p):
@@ -161,6 +162,6 @@ for domain, prompts in BENIGN.items():
         benign_rows.append({"prompt": p, "parent_category": "Safe", "vector": "Safe", "source": f"manual_benign_{domain}"})
 print(f"  ✅ {len(benign_rows)} benign prompts")
 
-pd.concat(attack_rows, ignore_index=True).to_csv(OUTPUT_DIR/"attack_prompts_raw.csv", index=False)
-pd.DataFrame(benign_rows).to_csv(OUTPUT_DIR/"benign_prompts_raw.csv", index=False)
-print("\n✅ wrote attack_prompts_raw.csv + benign_prompts_raw.csv  →  next: 04 then 03")
+pd.concat(attack_rows, ignore_index=True).to_csv(OUTPUT_DIR/"attack_prompts_raw.csv", index=False, quoting=csv.QUOTE_ALL)
+pd.DataFrame(benign_rows).to_csv(OUTPUT_DIR/"benign_prompts_raw.csv", index=False, quoting=csv.QUOTE_ALL)
+print("\n✅ wrote attack_prompts_raw.csv + benign_prompts_raw.csv  →  next: 03")
