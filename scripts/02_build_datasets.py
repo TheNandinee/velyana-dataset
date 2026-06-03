@@ -5,6 +5,7 @@ from pathlib import Path
 DOWNLOAD_DIR = Path("downloaded")
 OUTPUT_DIR = Path("output"); OUTPUT_DIR.mkdir(exist_ok=True)
 attack_rows, benign_rows, used_prompts = [], [], set()
+JUNK = r"analyze the security implications|what is this exploit"
 
 def find_col(df, kw):
     for c in df.columns:
@@ -27,9 +28,11 @@ def add_attack(df, parent, vector, source):
     df = df.copy()
     if "prompt" not in df.columns: df = df.rename(columns={df.columns[0]: "prompt"})
     df = df[["prompt"]].dropna(); df["prompt"] = df["prompt"].astype(str)
-    df["prompt"] = (df["prompt"].str.replace(r"[\r\n\t]+", " ", regex=True)
+    df["prompt"] = (df["prompt"].str.replace(r"<br\s*/?>", " ", regex=True)
+                                 .str.replace(r"[\r\n\t]+", " ", regex=True)
                                  .str.replace(r"[\x00-\x1f\x7f]", "", regex=True)
                                  .str.replace(r"\s+", " ", regex=True).str.strip())
+    df = df[~df["prompt"].str.contains(JUNK, case=False, regex=True)]       # drop exploit-DB titles
     df = df[df["prompt"].str.len().between(6, 2000)]
     df = df[~df["prompt"].isin(used_prompts)].drop_duplicates(subset=["prompt"])
     if len(df) == 0: return
@@ -59,37 +62,38 @@ PI_RULES = [
     ("Direct instruction override", ["ignore","disregard","forget","override","do not follow","bypass","new instruction","instead of"]),
 ]
 PI_DEFAULT = "Direct instruction override"
+# SPE_DEFAULT=None → only rows with a real extraction cue are kept (correctness)
 SPE_RULES = [
     ("Repetition and verbatim requests", ["repeat","verbatim","word for word","exactly as","echo","print the above","output the above","reproduce"]),
-    ("Format conversion extraction", ["translate","in json","as a poem","base64","encode your","in the form of","convert your","spell out","pig latin"]),
+    ("Format conversion extraction", ["translate","in json","as a poem","encode your","in the form of","convert your","spell out","pig latin"]),
     ("Summarisation inference", ["summar","tldr","tl;dr","gist of","paraphrase your"]),
     ("Completion-based extraction", ["complete the","continue the","finish the","fill in","the rest of"]),
     ("Behavioural inference and side-channel probing", ["why did you","what would you","how do you decide","based on your","what rules"]),
-    ("Direct questioning", ["system prompt","your instruction","initial prompt","what were you told","your guideline","your directive","reveal your"]),
+    ("Direct questioning", ["system prompt","your instruction","initial prompt","what were you told","your guideline","your directive","reveal your","repeat your prompt"]),
 ]
-SPE_DEFAULT = "Direct questioning"
+SPE_DEFAULT = None
 MC_RULES = [
-    ("Cross-site scripting (XSS) generation", ["<script","onerror","onload=","javascript:","alert(","<img","<svg","document.cookie","xss","innerhtml"]),
-    ("SQL injection payload generation", ["union select","' or '","or 1=1","drop table","insert into","sql injection","sqli","' or 1","sleep("]),
-    ("Command injection payload generation", ["; ls","&&","||","| cat","|cat","/bin/","/etc/passwd","wget ","curl ","$(","`","system(","exec(","command injection","cmd injection","nc -","bash -","sh -c","; cat","; rm","ping -","whoami","; id","&ping",";id"]),
-    ("Encoded and obfuscated payload delivery", ["base64","b64decode","%3c","%3e","%27","%22","\\x","\\u00","fromcharcode","eval(atob","atob(","char(","chr(","unescape","decodeuri","obfuscat","rot13","&#x"]),
-    ("Jailbreak via code context", ["write code","import os","python script","write a program","code that"]),
+    ("Cross-site scripting (XSS) generation", ["<script","onerror","onload=","javascript:","alert(","<img","<svg","document.cookie","onmouseover=","innerhtml"]),
+    ("SQL injection payload generation", ["union select","union all select","' or '","or 1=1","' or 1","drop table","insert into","select * from","sqli","sleep(","benchmark(","waitfor delay","information_schema","chr(","concat(","cast("]),
+    ("Command injection payload generation", ["; ls","; cat","; rm ","| cat","/bin/bash","/bin/sh","/etc/passwd","wget http","curl http","nc -","ncat ","bash -c","sh -c","whoami","$(id",";id","&& id","|id"]),
+    ("Encoded and obfuscated payload delivery", ["base64","b64decode","%3c","%3e","%27","%22","\\x","\\u00","fromcharcode","eval(atob","atob(","unescape","decodeuri","obfuscat","rot13","&#x"]),
+    ("Jailbreak via code context", ["write code","import os","python script","write a program","code that "]),
 ]
 MC_DEFAULT = None
 
-print("=" * 80); print("BUILDING VELYANA DATASET (real data)"); print("=" * 80)
+print("=" * 80); print("BUILDING VELYANA DATASET (real, correctness-gated)"); print("=" * 80)
 
 print("\n📁 CATEGORY 1: PROMPT INJECTION")
 for fn in ["lakera_gandalf", "hackaprompt", "trustairlab_jailbreak"]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
         t = find_col(df, ["prompt","text","input","attack","user_input","jailbreak"])
-        route_and_add(df[[t]].rename(columns={t:"prompt"}), "Prompt Injection", PI_RULES, PI_DEFAULT, fn, max_rows=4000)
+        route_and_add(df[[t]].rename(columns={t:"prompt"}), "Prompt Injection", PI_RULES, PI_DEFAULT, fn, max_rows=10000)
     except Exception as e: print(f"  ❌ {fn}: {e}")
-try:  # microsoft_llmail = indirect injection BY CONSTRUCTION
+try:
     df = pd.read_parquet(DOWNLOAD_DIR/"microsoft_llmail.parquet")
     t = find_col(df, ["body","attack","payload","text"])
-    df = df[[t]].rename(columns={t:"prompt"}).sample(min(5000, len(df)), random_state=42)
+    df = df[[t]].rename(columns={t:"prompt"}).sample(min(20000, len(df)), random_state=42)
     add_attack(df, "Prompt Injection", "Indirect injection via context", "microsoft_llmail")
 except Exception as e: print(f"  ❌ microsoft_llmail: {e}")
 try:
@@ -110,15 +114,15 @@ try:
         route_and_add(df[["prompt"]], "Prompt Injection", PI_RULES, PI_DEFAULT, "neuralchemy")
 except Exception as e: print(f"  ❌ neuralchemy: {e}")
 
-print("\n📁 CATEGORY 2: SYSTEM PROMPT EXTRACTION")
+print("\n📁 CATEGORY 2: SYSTEM PROMPT EXTRACTION (correctness-gated, may N/A)")
 try:
     df = pd.read_parquet(DOWNLOAD_DIR/"gabrielchua_spe.parquet")
     t = find_col(df,["content","prompt","text"]); lab = find_label_col(df,["leakage","label"])
-    route_and_add(filter_attacks(df.rename(columns={t:"prompt"}), lab)[["prompt"]], "System Prompt Extraction", SPE_RULES, SPE_DEFAULT, "gabrielchua_spe", max_rows=8000)
+    route_and_add(filter_attacks(df.rename(columns={t:"prompt"}), lab)[["prompt"]], "System Prompt Extraction", SPE_RULES, SPE_DEFAULT, "gabrielchua_spe", max_rows=40000)
 except Exception as e: print(f"  ❌ gabrielchua_spe: {e}")
 
 print("\n📁 CATEGORY 3: MALICIOUS CODE AND PAYLOAD INJECTION")
-for fn, cols, mx in [("truongp_web_attack",["sentence","text","prompt"],12000), ("waiper_exploitdb",["input","prompt","payload","text"],4000)]:
+for fn, cols, mx in [("truongp_web_attack",["sentence","text","prompt"],30000), ("waiper_exploitdb",["input","prompt","payload","text"],4000)]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
         t = find_col(df, cols); lab = find_label_col(df,["label"])
@@ -138,11 +142,11 @@ try:
     lab = find_label_col(df,["label"]); t = "title" if "title" in df.columns else find_col(df,["text","content"])
     df = df.rename(columns={t:"prompt"})
     if lab is not None: df = df[df[lab].isin([0,"0",False])]
-    add_attack(df[["prompt"]].sample(min(3000,len(df)), random_state=42), "Malicious Content in Output", "Misinformation and hallucination manipulation", "fake_news")
+    add_attack(df[["prompt"]].sample(min(6000,len(df)), random_state=42), "Malicious Content in Output", "Misinformation and hallucination manipulation", "fake_news")
 except Exception as e: print(f"  ❌ fake_news: {e}")
 
 print("\n📁 SAFETY BASELINE")
-for fn, n in [("nvidia_aegis",2500),("toxigen",1500),("google_civil_comments",2000),("ucb_hate_speech",1500)]:
+for fn, n in [("nvidia_aegis",3000),("toxigen",1500),("google_civil_comments",3000),("ucb_hate_speech",2000)]:
     try:
         df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
         t = find_col(df,["prompt","text"])
@@ -164,4 +168,4 @@ print(f"  ✅ {len(benign_rows)} benign prompts")
 
 pd.concat(attack_rows, ignore_index=True).to_csv(OUTPUT_DIR/"attack_prompts_raw.csv", index=False, quoting=csv.QUOTE_ALL)
 pd.DataFrame(benign_rows).to_csv(OUTPUT_DIR/"benign_prompts_raw.csv", index=False, quoting=csv.QUOTE_ALL)
-print("\n✅ wrote attack_prompts_raw.csv + benign_prompts_raw.csv  →  next: 03")
+print("\n✅ wrote raw CSVs → next: 03")
