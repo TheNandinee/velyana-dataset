@@ -1,4 +1,4 @@
-import os, io, requests
+import os, io, time, requests
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
