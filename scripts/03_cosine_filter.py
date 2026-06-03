@@ -1,3 +1,4 @@
+import csv
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -8,7 +9,6 @@ MAX_PER_VECTOR = 1500; MIN_PER_VECTOR = 100
 THRESHOLDS = {"Prompt Injection": 0.65, "Safety": 0.70}
 DEFAULT_THRESHOLD = 0.80
 
-# Full Velyana taxonomy, categories 1-5 (24 vectors) — used for the N/A coverage report
 TAXONOMY = {
  "Prompt Injection": ["Direct instruction override","Role and persona assignment","Indirect injection via context","Encoded and obfuscated injection","Second-hop and forwarded injection"],
  "System Prompt Extraction": ["Direct questioning","Repetition and verbatim requests","Format conversion extraction","Summarisation inference","Completion-based extraction","Behavioural inference and side-channel probing"],
@@ -43,29 +43,26 @@ def balance(df):
         out.append(g.sample(MAX_PER_VECTOR, random_state=42) if len(g) > MAX_PER_VECTOR else g)
     return pd.concat(out, ignore_index=True)
 
-# ---- REAL data only ----
 attack = pd.read_csv(OUTPUT_DIR/"attack_prompts_raw.csv")
 attack = attack[attack["prompt"].astype(str).str.len() > 5].drop_duplicates(subset=["prompt"])
 print("=== ATTACK (real only) ==="); attack = balance(cosine_dedup(attack))
-attack.to_csv(OUTPUT_DIR/"attack_prompts.csv", index=False)
+attack.to_csv(OUTPUT_DIR/"attack_prompts.csv", index=False, quoting=csv.QUOTE_ALL)
 
 benign = pd.read_csv(OUTPUT_DIR/"benign_prompts_raw.csv")
 benign = benign[benign["prompt"].astype(str).str.len() > 5].drop_duplicates(subset=["prompt"])
 print("\n=== BENIGN ==="); benign = cosine_dedup(benign)
-benign.to_csv(OUTPUT_DIR/"benign_prompts.csv", index=False)
+benign.to_csv(OUTPUT_DIR/"benign_prompts.csv", index=False, quoting=csv.QUOTE_ALL)
 
 combined = pd.concat([attack, benign], ignore_index=True)
-combined.to_csv(OUTPUT_DIR/"velyana_dataset_final.csv", index=False)
+combined.to_csv(OUTPUT_DIR/"velyana_dataset_final.csv", index=False, quoting=csv.QUOTE_ALL)
 
-# ---- COVERAGE REPORT: every taxonomy vector, real count or N/A (no fake rows in CSV) ----
 present = combined["vector"].value_counts().to_dict()
 report = []
 for cat, vecs in TAXONOMY.items():
     for v in vecs:
         cnt = present.get(v, 0)
         report.append({"parent_category": cat, "vector": v, "rows": cnt if cnt else "N/A"})
-rep = pd.DataFrame(report)
-rep.to_csv(OUTPUT_DIR/"coverage_report.csv", index=False)
+pd.DataFrame(report).to_csv(OUTPUT_DIR/"coverage_report.csv", index=False)
 
 print(f"\nFINAL: {len(combined)} rows")
 covered = sum(1 for r in report if r["rows"] != "N/A")
