@@ -24,6 +24,7 @@ DATASETS = {
     # ---- Malicious Code ----
     "truongp_web_attack":    ("truongp/web-attack-detection", None),
     "waiper_exploitdb":      ("Waiper/ExploitDB_DataSet", None),
+    "rmcbench":              ("zhongqy/RMCBench", None),   # -> Jailbreak via code context
     # ---- Malicious Content in Output ----
     "phishing_urls":         ("shawhin/phishing-site-classification", None),
     "fake_news":             ("GonzaloA/fake_news", None),
