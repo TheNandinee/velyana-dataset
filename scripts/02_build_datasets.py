@@ -163,15 +163,6 @@ try:
     add_attack(df[["prompt"]].sample(min(6000,len(df)), random_state=42), "Malicious Content in Output", "Misinformation and hallucination manipulation", "fake_news")
 except Exception as e: print(f"  FAIL fake_news: {e}")
 
-# ===== SAFETY BASELINE (optional; not in the 31-vector taxonomy) =====
-print("\n[*] SAFETY BASELINE (optional)")
-for fn, n in [("nvidia_aegis",3000),("toxigen",1500),("google_civil_comments",3000),("ucb_hate_speech",2000)]:
-    try:
-        df = pd.read_parquet(DOWNLOAD_DIR/f"{fn}.parquet")
-        t = find_col(df,["prompt","text"])
-        add_attack(df[[t]].rename(columns={t:"prompt"}).sample(min(n,len(df)), random_state=42), "Safety", "Toxic and abusive content", fn)
-    except Exception as e: print(f"  FAIL {fn}: {e}")
-
 # ===== BENIGN =====
 print("\n[B] BENIGN")
 BENIGN = {
