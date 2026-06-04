@@ -141,6 +141,11 @@ for fn, cols, mx in [("truongp_web_attack",["sentence","text","prompt"],30000), 
         df = filter_attacks(df.rename(columns={t:"prompt"}), lab) if lab else df.rename(columns={t:"prompt"})
         route_and_add(df[["prompt"]], "Malicious Code and Payload Injection", MC_RULES, MC_DEFAULT, fn, max_rows=mx)
     except Exception as e: print(f"  FAIL {fn}: {e}")
+try:  # RMCBench = prompts that instruct an LLM to generate malicious code -> Jailbreak via code context
+    df = pd.read_parquet(DOWNLOAD_DIR/"rmcbench.parquet")
+    t = find_col(df, ["prompt","text","instruction"])
+    add_attack(df[[t]].rename(columns={t:"prompt"}), "Malicious Code and Payload Injection", "Jailbreak via code context", "rmcbench")
+except Exception as e: print(f"  FAIL rmcbench: {e}")
 
 # ===== CATEGORY 5: MALICIOUS CONTENT IN OUTPUT =====
 print("\n[5] MALICIOUS CONTENT IN OUTPUT")
