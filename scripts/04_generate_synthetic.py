@@ -111,7 +111,7 @@ print(f"Loading {MODEL_ID} ...")
 tok = AutoTokenizer.from_pretrained(MODEL_ID, token=HF_TOKEN)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_ID, token=HF_TOKEN,
-    torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+    dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
     device_map="auto" if torch.cuda.is_available() else None)
 if not torch.cuda.is_available(): model.to("cpu")
 print("ready")
@@ -121,10 +121,11 @@ LINE_RE = re.compile(r"^\s*\d+[\.\)]\s*(.+?)\s*$")
 def gen_once(spec, n, variation):
     msgs = [{"role":"system","content":SYS},
             {"role":"user","content":build_prompt(spec, n, variation)}]
-    ids = tok.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(model.device)
-    out = model.generate(ids, max_new_tokens=1600, do_sample=True, temperature=0.9, top_p=0.95,
+    inputs = tok.apply_chat_template(msgs, add_generation_prompt=True,
+                                     return_tensors="pt", return_dict=True).to(model.device)
+    out = model.generate(**inputs, max_new_tokens=1600, do_sample=True, temperature=0.9, top_p=0.95,
                          pad_token_id=tok.eos_token_id)
-    text = tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True)
+    text = tok.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
     res = []
     for ln in text.splitlines():
         m = LINE_RE.match(ln)
