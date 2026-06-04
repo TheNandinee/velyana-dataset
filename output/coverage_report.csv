@@ -13,21 +13,21 @@ System Prompt Extraction,Behavioural inference and side-channel probing,63
 Malicious Code and Payload Injection,Cross-site scripting (XSS) generation,2563
 Malicious Code and Payload Injection,SQL injection payload generation,314
 Malicious Code and Payload Injection,Command injection payload generation,31
-Malicious Code and Payload Injection,Jailbreak via code context,N/A
-Malicious Code and Payload Injection,Prompt-embedded payload delivery,N/A
+Malicious Code and Payload Injection,Jailbreak via code context,242
+Malicious Code and Payload Injection,Prompt-embedded payload delivery,98
 Malicious Code and Payload Injection,Encoded and obfuscated payload delivery,1254
-Privilege and Identity Attacks,Cross-customer identity leakage (BOLA),N/A
-Privilege and Identity Attacks,Authentication credential extraction,N/A
-Malicious Content in Output,HTML and JavaScript injection in output,N/A
+Privilege and Identity Attacks,Cross-customer identity leakage (BOLA),93
+Privilege and Identity Attacks,Authentication credential extraction,97
+Malicious Content in Output,HTML and JavaScript injection in output,95
 Malicious Content in Output,Malicious URL generation,1347
-Malicious Content in Output,Data exfiltration via output formatting,N/A
+Malicious Content in Output,Data exfiltration via output formatting,100
 Malicious Content in Output,Misinformation and hallucination manipulation,5941
-Malicious Content in Output,Sycophantic manipulation and false premise confirmation,N/A
-Denial of Service and Resource Exhaustion,Sponge attacks,N/A
-Denial of Service and Resource Exhaustion,Recursive elaboration attacks,N/A
-Denial of Service and Resource Exhaustion,Context window flooding,N/A
-Training Data and Knowledge Attacks,Training data extraction,N/A
-Training Data and Knowledge Attacks,Model inversion and fine-tuning probing,N/A
-Training Data and Knowledge Attacks,Adversarial knowledge boundary exploitation,N/A
-Multi-modal and Cross-modal Injection,Image-embedded instruction injection,N/A
-Multi-modal and Cross-modal Injection,Document structure injection,N/A
+Malicious Content in Output,Sycophantic manipulation and false premise confirmation,100
+Denial of Service and Resource Exhaustion,Sponge attacks,99
+Denial of Service and Resource Exhaustion,Recursive elaboration attacks,94
+Denial of Service and Resource Exhaustion,Context window flooding,99
+Training Data and Knowledge Attacks,Training data extraction,92
+Training Data and Knowledge Attacks,Model inversion and fine-tuning probing,97
+Training Data and Knowledge Attacks,Adversarial knowledge boundary exploitation,100
+Multi-modal and Cross-modal Injection,Image-embedded instruction injection,100
+Multi-modal and Cross-modal Injection,Document structure injection,98
