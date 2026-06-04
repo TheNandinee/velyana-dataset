@@ -1,6 +1,6 @@
-name: Build Velyana Dataset (fetched + generated)
-# One run = full final CSV: download real data -> map to taxonomy -> generate synthetic
-# (Llama 3.2) for the N/A vectors -> cosine filter + merge -> output/velyana_dataset_final.csv
+name: Build Velyana Dataset
+# Uses the committed output/synthetic_prompts.csv (generated separately in Colab).
+# download real data -> map to taxonomy -> cosine filter + merge synthetic -> final CSV.
 on:
   workflow_dispatch:
 
@@ -10,11 +10,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 350           # generation on CPU is slow; give it room
+    timeout-minutes: 120
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      GEN_MODEL: unsloth/Llama-3.2-1B-Instruct   # ungated + CPU-friendly. For 3B quality, generate in Colab instead.
-      PER_VECTOR: "100"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -24,16 +22,21 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pandas scikit-learn sentence-transformers tqdm pyarrow requests transformers accelerate torch
+          pip install pandas scikit-learn sentence-transformers tqdm pyarrow requests
       - name: Create directories
         run: mkdir -p downloaded output
+      - name: Check synthetic file is present
+        run: |
+          if [ -f output/synthetic_prompts.csv ]; then
+            echo "OK: output/synthetic_prompts.csv found ($(wc -l < output/synthetic_prompts.csv) lines)"
+          else
+            echo "WARNING: output/synthetic_prompts.csv NOT found - the 14 synthetic vectors will show N/A"
+          fi
       - name: 1) Download real datasets
         run: python scripts/01_download_hf.py
       - name: 2) Build + map to taxonomy
         run: python scripts/02_build_datasets.py
-      - name: 3) Generate synthetic for N/A vectors (Llama 3.2)
-        run: python scripts/04_generate_synthetic.py
-      - name: 4) Cosine filter + merge + coverage
+      - name: 3) Cosine filter + merge synthetic + coverage
         run: python scripts/03_cosine_filter.py
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
