@@ -3,55 +3,43 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write          # lets the bot push results back
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}   # datasets + requests auto-use this
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install datasets huggingface_hub pandas scikit-learn sentence-transformers tqdm pyarrow requests
-
-    - name: Create directories
-      run: mkdir -p downloaded output
-
-    - name: Download datasets
-      run: python scripts/01_download_hf.py
-
-    - name: Build attack and benign datasets
-      run: python scripts/02_build_datasets.py
-
-    - name: Apply cosine similarity filter
-      run: python scripts/03_cosine_filter.py
-
-    - name: Upload final datasets as artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: final-datasets
-        path: output/*.csv
-        retention-days: 30
-
-    - name: Commit and push results
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action Bot"
-        git add output/*.csv
-        if git diff --cached --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "Dataset build complete - $(date)"
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas scikit-learn sentence-transformers tqdm pyarrow requests
+      - name: Create directories
+        run: mkdir -p downloaded output
+      - name: Download datasets
+        run: python scripts/01_download_hf.py
+      - name: Build datasets (map to taxonomy)
+        run: python scripts/02_build_datasets.py
+      - name: Cosine filter + coverage report
+        run: python scripts/03_cosine_filter.py
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: velyana-dataset
+          path: output/*.csv
+          retention-days: 30
+      - name: Commit results
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add output/*.csv
+          git diff --cached --quiet || git commit -m "Dataset build $(date)"
           git push origin main
-        fi
-      continue-on-error: true
+        continue-on-error: true
