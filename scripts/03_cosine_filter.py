@@ -38,8 +38,12 @@ def cosine_dedup(df):
         kept.append(chunk.iloc[idx]); print(f"     -> {len(idx)}", flush=True)
     return pd.concat(kept, ignore_index=True)
 
-# ATTACK: cosine-dedup every vector; keep all (no floor, no cap)
-attack = pd.read_csv(OUTPUT_DIR/"attack_prompts_raw.csv")
+# ATTACK: real (02) + synthetic (04, if present); cosine-dedup every vector; keep all
+frames = [pd.read_csv(OUTPUT_DIR/"attack_prompts_raw.csv")]
+syn = OUTPUT_DIR/"synthetic_prompts.csv"
+if syn.exists():
+    frames.append(pd.read_csv(syn)); print(f"merging synthetic: {len(frames[-1])} rows")
+attack = pd.concat(frames, ignore_index=True)
 attack = attack[attack["prompt"].astype(str).str.len() > 5].drop_duplicates(subset=["prompt"])
 print("=== ATTACK ==="); attack = cosine_dedup(attack)
 attack.to_csv(OUTPUT_DIR/"attack_prompts.csv", index=False, quoting=csv.QUOTE_ALL)
@@ -60,7 +64,8 @@ report = [{"parent_category": c, "vector": v, "rows": present.get(v, 0) or "N/A"
 pd.DataFrame(report).to_csv(OUTPUT_DIR/"coverage_report.csv", index=False)
 
 covered = sum(1 for r in report if r["rows"] != "N/A")
-print(f"\nFINAL: {len(combined)} rows | {covered}/31 vectors present, {31-covered}/31 N/A")
+total = len(report)
+print(f"\nFINAL: {len(combined)} rows | {covered}/{total} vectors present, {total-covered}/{total} N/A")
 print(f"attack: {len(attack)}  benign: {len(benign)}\n")
 for c, vs in TAXONOMY.items():
     print(c)
