@@ -7,6 +7,8 @@ DOWNLOAD_DIR = Path("downloaded"); DOWNLOAD_DIR.mkdir(exist_ok=True)
 HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
 HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 PARQUET_API = "https://datasets-server.huggingface.co/parquet?dataset={repo}"
+SPLITS_API  = "https://datasets-server.huggingface.co/splits?dataset={repo}"
+ROWS_API    = "https://datasets-server.huggingface.co/rows?dataset={repo}&config={config}&split={split}&offset={off}&length=100"
 
 # repo, config-filter (None = all configs). Parquet-direct only (no load_dataset -> no 429 storm).
 DATASETS = {
@@ -28,11 +30,6 @@ DATASETS = {
     # ---- Malicious Content in Output ----
     "phishing_urls":         ("shawhin/phishing-site-classification", None),
     "fake_news":             ("GonzaloA/fake_news", None),
-    # ---- Safety baseline (NOT part of the 31-vector taxonomy; optional) ----
-    "nvidia_aegis":          ("nvidia/Aegis-AI-Content-Safety-Dataset-1.0", None),
-    "toxigen":               ("toxigen/toxigen-data", None),
-    "google_civil_comments": ("google/civil_comments", None),
-    "ucb_hate_speech":       ("ucberkeley-dlab/measuring-hate-speech", None),
     # ---- Benign (fixes attack/benign imbalance) ----
     "dolly":                 ("databricks/databricks-dolly-15k", None),
     "alpaca":                ("tatsu-lab/alpaca", None),
@@ -63,11 +60,61 @@ def discover(repo, configs=None, tries=5):
     return []
 
 
+def fetch_rows(repo, max_rows=8000):
+    """Fallback for datasets with no parquet export (e.g. RMCBench): use the rows API."""
+    r = get(SPLITS_API.format(repo=repo))
+    splits = r.json().get("splits", [])
+    if not splits:
+        return None
+    frames = []
+    for sp in splits:
+        config, split, off = sp["config"], sp["split"], 0
+        while off < max_rows:
+            rr = get(ROWS_API.format(repo=repo, config=config, split=split, off=off))
+            data = rr.json(); rows = data.get("rows", [])
+            if not rows:
+                break
+            frames.append(pd.DataFrame([x["row"] for x in rows]))
+            off += 100
+            if off >= data.get("num_rows_total", 0):
+                break
+    return pd.concat(frames, ignore_index=True) if frames else None
+
+
+def fetch_files(repo):
+    """Most robust fallback: list the repo's files via the HF API and read them directly."""
+    meta = get(f"https://huggingface.co/api/datasets/{repo}")
+    files = [s["rfilename"] for s in meta.json().get("siblings", [])]
+    exts = (".parquet", ".jsonl", ".json", ".csv", ".tsv")
+    data_files = [f for f in files if f.lower().endswith(exts) and "readme" not in f.lower()]
+    frames = []
+    for f in sorted(data_files, key=lambda x: (not x.endswith(".parquet"), x)):
+        try:
+            content = get(f"https://huggingface.co/datasets/{repo}/resolve/main/{f}").content
+            fl = f.lower()
+            if fl.endswith(".parquet"):  df = pd.read_parquet(io.BytesIO(content))
+            elif fl.endswith(".jsonl"):  df = pd.read_json(io.BytesIO(content), lines=True)
+            elif fl.endswith(".json"):
+                try: df = pd.read_json(io.BytesIO(content))
+                except ValueError: df = pd.read_json(io.BytesIO(content), lines=True)
+            elif fl.endswith(".tsv"):    df = pd.read_csv(io.BytesIO(content), sep="\t")
+            else:                        df = pd.read_csv(io.BytesIO(content))
+            if df is not None and len(df): frames.append(df)
+        except Exception:
+            continue
+    return pd.concat(frames, ignore_index=True) if frames else None
+
+
 def fetch(repo, configs):
     urls = discover(repo, configs)
-    if not urls:
-        return None
-    return pd.concat([pd.read_parquet(io.BytesIO(get(u).content)) for u in urls], ignore_index=True)
+    if urls:
+        return pd.concat([pd.read_parquet(io.BytesIO(get(u).content)) for u in urls], ignore_index=True)
+    try:
+        df = fetch_files(repo)               # raw-file download (best for small JSON datasets)
+        if df is not None and len(df): return df
+    except Exception:
+        pass
+    return fetch_rows(repo)                  # last resort: rows API
 
 
 success = failed = 0
