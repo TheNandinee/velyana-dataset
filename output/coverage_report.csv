@@ -1,18 +1,18 @@
 parent_category,vector,rows
-Prompt Injection,Direct instruction override,2997
-Prompt Injection,Role and persona assignment,N/A
+Prompt Injection,Direct instruction override,4856
+Prompt Injection,Role and persona assignment,1143
 Prompt Injection,Indirect injection via context,2577
-Prompt Injection,Encoded and obfuscated injection,N/A
-Prompt Injection,Second-hop and forwarded injection,N/A
-System Prompt Extraction,Direct questioning,N/A
-System Prompt Extraction,Repetition and verbatim requests,N/A
-System Prompt Extraction,Format conversion extraction,N/A
+Prompt Injection,Encoded and obfuscated injection,82
+Prompt Injection,Second-hop and forwarded injection,85
+System Prompt Extraction,Direct questioning,146
+System Prompt Extraction,Repetition and verbatim requests,133
+System Prompt Extraction,Format conversion extraction,254
 System Prompt Extraction,Summarisation inference,3160
-System Prompt Extraction,Completion-based extraction,N/A
-System Prompt Extraction,Behavioural inference and side-channel probing,N/A
+System Prompt Extraction,Completion-based extraction,42
+System Prompt Extraction,Behavioural inference and side-channel probing,63
 Malicious Code and Payload Injection,Cross-site scripting (XSS) generation,2563
-Malicious Code and Payload Injection,SQL injection payload generation,N/A
-Malicious Code and Payload Injection,Command injection payload generation,N/A
+Malicious Code and Payload Injection,SQL injection payload generation,314
+Malicious Code and Payload Injection,Command injection payload generation,31
 Malicious Code and Payload Injection,Jailbreak via code context,N/A
 Malicious Code and Payload Injection,Prompt-embedded payload delivery,N/A
 Malicious Code and Payload Injection,Encoded and obfuscated payload delivery,1254
@@ -23,3 +23,11 @@ Malicious Content in Output,Malicious URL generation,1347
 Malicious Content in Output,Data exfiltration via output formatting,N/A
 Malicious Content in Output,Misinformation and hallucination manipulation,5941
 Malicious Content in Output,Sycophantic manipulation and false premise confirmation,N/A
+Denial of Service and Resource Exhaustion,Sponge attacks,N/A
+Denial of Service and Resource Exhaustion,Recursive elaboration attacks,N/A
+Denial of Service and Resource Exhaustion,Context window flooding,N/A
+Training Data and Knowledge Attacks,Training data extraction,N/A
+Training Data and Knowledge Attacks,Model inversion and fine-tuning probing,N/A
+Training Data and Knowledge Attacks,Adversarial knowledge boundary exploitation,N/A
+Multi-modal and Cross-modal Injection,Image-embedded instruction injection,N/A
+Multi-modal and Cross-modal Injection,Document structure injection,N/A
