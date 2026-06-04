@@ -1,0 +1,45 @@
+name: Generate Synthetic (N/A vectors)
+# Runs the Llama 3.2 generator and commits output/synthetic_prompts.csv.
+# GitHub runners are CPU-only, so this uses the 1B model. For best quality run
+# scripts/04_generate_synthetic.py in Colab on a GPU with the 3B model instead,
+# then commit output/synthetic_prompts.csv yourself.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      GEN_MODEL: unsloth/Llama-3.2-1B-Instruct   # ungated, CPU-friendly
+      PER_VECTOR: "100"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install
+        run: |
+          pip install --upgrade pip
+          pip install transformers accelerate torch pandas
+      - name: Generate
+        run: |
+          mkdir -p output
+          python scripts/04_generate_synthetic.py
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-prompts
+          path: output/synthetic_prompts.csv
+      - name: Commit
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add output/synthetic_prompts.csv
+          git diff --cached --quiet || git commit -m "Synthetic N/A vectors $(date)"
+          git push origin main
+        continue-on-error: true
