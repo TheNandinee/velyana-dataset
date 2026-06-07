@@ -1,33 +1,33 @@
 parent_category,vector,rows
-Prompt Injection,Direct instruction override,4856
-Prompt Injection,Role and persona assignment,1143
-Prompt Injection,Indirect injection via context,2577
-Prompt Injection,Encoded and obfuscated injection,82
-Prompt Injection,Second-hop and forwarded injection,85
-System Prompt Extraction,Direct questioning,146
-System Prompt Extraction,Repetition and verbatim requests,133
-System Prompt Extraction,Format conversion extraction,254
-System Prompt Extraction,Summarisation inference,3160
-System Prompt Extraction,Completion-based extraction,42
-System Prompt Extraction,Behavioural inference and side-channel probing,63
-Malicious Code and Payload Injection,Cross-site scripting (XSS) generation,2563
-Malicious Code and Payload Injection,SQL injection payload generation,314
-Malicious Code and Payload Injection,Command injection payload generation,31
-Malicious Code and Payload Injection,Jailbreak via code context,242
-Malicious Code and Payload Injection,Prompt-embedded payload delivery,98
-Malicious Code and Payload Injection,Encoded and obfuscated payload delivery,1254
-Privilege and Identity Attacks,Cross-customer identity leakage (BOLA),93
-Privilege and Identity Attacks,Authentication credential extraction,97
-Malicious Content in Output,HTML and JavaScript injection in output,95
-Malicious Content in Output,Malicious URL generation,1347
-Malicious Content in Output,Data exfiltration via output formatting,100
-Malicious Content in Output,Misinformation and hallucination manipulation,5941
-Malicious Content in Output,Sycophantic manipulation and false premise confirmation,100
-Denial of Service and Resource Exhaustion,Sponge attacks,99
-Denial of Service and Resource Exhaustion,Recursive elaboration attacks,94
-Denial of Service and Resource Exhaustion,Context window flooding,99
-Training Data and Knowledge Attacks,Training data extraction,92
-Training Data and Knowledge Attacks,Model inversion and fine-tuning probing,97
-Training Data and Knowledge Attacks,Adversarial knowledge boundary exploitation,100
-Multi-modal and Cross-modal Injection,Image-embedded instruction injection,100
-Multi-modal and Cross-modal Injection,Document structure injection,98
+Prompt Injection,Direct instruction override,4459
+Prompt Injection,Role and persona assignment,1076
+Prompt Injection,Indirect injection via context,1953
+Prompt Injection,Encoded and obfuscated injection,72
+Prompt Injection,Second-hop and forwarded injection,84
+System Prompt Extraction,Direct questioning,127
+System Prompt Extraction,Repetition and verbatim requests,117
+System Prompt Extraction,Format conversion extraction,216
+System Prompt Extraction,Summarisation inference,2195
+System Prompt Extraction,Completion-based extraction,37
+System Prompt Extraction,Behavioural inference and side-channel probing,55
+Malicious Code and Payload Injection,Cross-site scripting (XSS) generation,1882
+Malicious Code and Payload Injection,SQL injection payload generation,216
+Malicious Code and Payload Injection,Command injection payload generation,27
+Malicious Code and Payload Injection,Jailbreak via code context,214
+Malicious Code and Payload Injection,Prompt-embedded payload delivery,997
+Malicious Code and Payload Injection,Encoded and obfuscated payload delivery,998
+Privilege and Identity Attacks,Cross-customer identity leakage (BOLA),993
+Privilege and Identity Attacks,Authentication credential extraction,998
+Malicious Content in Output,HTML and JavaScript injection in output,984
+Malicious Content in Output,Malicious URL generation,1296
+Malicious Content in Output,Data exfiltration via output formatting,998
+Malicious Content in Output,Misinformation and hallucination manipulation,5870
+Malicious Content in Output,Sycophantic manipulation and false premise confirmation,1000
+Denial of Service and Resource Exhaustion,Sponge attacks,973
+Denial of Service and Resource Exhaustion,Recursive elaboration attacks,947
+Denial of Service and Resource Exhaustion,Context window flooding,987
+Training Data and Knowledge Attacks,Training data extraction,995
+Training Data and Knowledge Attacks,Model inversion and fine-tuning probing,998
+Training Data and Knowledge Attacks,Adversarial knowledge boundary exploitation,1000
+Multi-modal and Cross-modal Injection,Image-embedded instruction injection,999
+Multi-modal and Cross-modal Injection,Document structure injection,999
